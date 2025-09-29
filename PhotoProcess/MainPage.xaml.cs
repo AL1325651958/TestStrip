@@ -621,6 +621,36 @@ namespace PhotoProcess
 
                 try
                 {
+                    string userInput = null;
+                    bool isValidInput = false;
+
+                    // 循环直到获得有效输入或用户取消
+                    while (!isValidInput)
+                    {
+                        // 弹出输入框获取用户数据
+                        userInput = await DisplayPromptAsync(
+                            "仪器实测数据",
+                            "请输入仪器实测的数据：",
+                            "确认",
+                            "不添加发送",
+                            "0",  // 默认值设为0
+                            maxLength: 20,
+                            keyboard: Keyboard.Numeric);  // 使用数字键盘
+
+                        // 用户点击取消
+                        if (userInput == null) break;
+
+                        // 检查是否为有效数字
+                        if (double.TryParse(userInput, out _))
+                        {
+                            isValidInput = true;
+                        }
+                        else
+                        {
+                            await DisplayAlert("输入错误", "请输入有效的数字", "确定");
+                        }
+                    }
+
                     string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                     string fileName = $"DataValues_{timestamp}.txt";
                     string folderPath = FileSystem.Current.AppDataDirectory;
@@ -632,17 +662,22 @@ namespace PhotoProcess
                         lines.Add(b.ToString());
                     }
                     lines.Add(imageProcess.TCrate.ToString());
+                    if (isValidInput)
+                    {
+                        lines.Add(userInput);
+                    }
+
                     await File.WriteAllLinesAsync(filePath, lines);
 
                     await Share.RequestAsync(new ShareFileRequest
                     {
-                        Title = "Share Data Values",
+                        Title = "分享数据文件",
                         File = new ShareFile(filePath)
                     });
                 }
                 catch (Exception ex)
                 {
-                    await DisplayAlert("Error", $"Failed to save/share file: {ex.Message}", "OK");
+                    await DisplayAlert("错误", $"保存/分享文件失败: {ex.Message}", "确定");
                 }
             }
         }
