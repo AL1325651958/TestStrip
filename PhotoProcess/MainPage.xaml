@@ -1,0 +1,47 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:skia="clr-namespace:SkiaSharp.Views.Maui.Controls;assembly=SkiaSharp.Views.Maui.Controls"
+             x:Class="PhotoProcess.MainPage">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20,0" Spacing="10">
+            <Image x:Name="selectedImage"
+                   HeightRequest="300"
+                   Aspect="AspectFit"/>
+            <Button Text="Open"
+                    Clicked="Button_Clicked"/>
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="5" RowSpacing="2">
+                <Button x:Name="AutoModeButton" Text="Auto" 
+                        Grid.Column="0" Grid.Row="2" Clicked="AutoMode_Clicked"/>
+                <Button x:Name="SaveWaveformButton" Text="Save" 
+                        Grid.Column="1" Grid.Row="2" Clicked="SaveWaveform_Clicked"/>
+            </Grid>
+
+
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalOptions="Center">
+                <Label Text="Threshold: " VerticalTextAlignment="Center" Grid.Column="0"/>
+                <Slider x:Name="ThresholdSlider"
+                        Minimum="0"
+                        Maximum="255"
+                        Value="128"
+                        Grid.Column="1"
+                        IsVisible="False"
+                        ValueChanged="ThresholdSlider_ValueChanged"/>
+                <Label Text="{Binding Source={x:Reference ThresholdSlider}, Path=Value, StringFormat='{0:F0}'}"
+                       Grid.Column="2"
+                       Margin="5,0,0,0"
+                       VerticalTextAlignment="Center"/>
+            </Grid>
+            <skia:SKCanvasView x:Name="waveformCanvas"
+                                HeightRequest="150"
+                                PaintSurface="OnWaveformPaintSurface"
+                                Touch="waveformCanvas_Touch"
+                                EnableTouchEvents="True"/>
+            <ActivityIndicator x:Name="ProcessingIndicator" 
+                               IsVisible="False" 
+                               IsRunning="False" 
+                               HeightRequest="20"/>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

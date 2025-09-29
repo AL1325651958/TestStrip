@@ -1,0 +1,1 @@
+F:\Code\VsWork\PhotoProcess\PhotoProcess\PhotoProcess.csproj;x64
