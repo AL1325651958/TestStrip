@@ -58,7 +58,9 @@
 
             <skia:SKCanvasView x:Name="waveformCanvas"
                                 HeightRequest="150"
-                                PaintSurface="OnWaveformPaintSurface"/>
+                                PaintSurface="OnWaveformPaintSurface"
+                               Touch="waveformCanvas_Touch"
+                               EnableTouchEvents="True"/>
             <ActivityIndicator x:Name="ProcessingIndicator" 
                                IsVisible="False" 
                                IsRunning="False" 

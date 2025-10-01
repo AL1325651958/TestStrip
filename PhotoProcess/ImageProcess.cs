@@ -650,12 +650,18 @@ namespace PhotoProcess
             {
                 int idx = i * 4;
                 // 假设像素存储顺序是BGR
-                if (!_B_enabled) pixels[idx + 2] = 0;     // B 通道置零
-                if (!_G_enabled) pixels[idx + 1] = 0; // G 通道置零
-                if (!_R_enabled) pixels[idx + 0] = 0; // R 通道置零
-                                                      // 注意：这里交换了R和B，索引0是B，索引2是R
+                if (!_B_enabled) pixels[idx + 2] = 0;   // B 通道置零
+                if (!_G_enabled) pixels[idx + 1] = 0;   // G 通道置零
+                if (!_R_enabled) pixels[idx + 0] = 0;   // R 通道置零
+                                                        // 注意：这里交换了R和B，索引0是B，索引2是R
             }
+        }
 
+        public void ApplyChannelDiff(SKBitmap bitmap, ChannelDiffMode mode)
+        {
+            using var pixmap = bitmap.PeekPixels();
+            var pixels = pixmap.GetPixelSpan<byte>();
+            int pixelCount = bitmap.Width * bitmap.Height;
             //取中间行数据 10%~90%
             int width = bitmap.Width;
             int height = bitmap.Height;
@@ -665,7 +671,7 @@ namespace PhotoProcess
             int segmentWidth = _endX - _startX;
             _DataValues = new byte[segmentWidth];
             byte gray = 0;
-            byte r = 0,g = 0, b = 0;
+            byte r = 0, g = 0, b = 0;
             // 提取中间行的数据（灰度值）
             for (int x = _startX; x < _endX; x++)
             {
@@ -683,6 +689,55 @@ namespace PhotoProcess
                 gray = CalculateChannelDiff(r, g, b, CurrentAnalysisMode);
                 _DataValues[x - _startX] = gray;
 
+            }
+        }
+
+
+        public void ApplyInvertRGB(SKBitmap bitmap)
+        {
+            using var pixmap = bitmap.PeekPixels();
+            var pixels = pixmap.GetPixelSpan<byte>();
+            int pixelCount = bitmap.Width * bitmap.Height;
+            byte gray = 0, r = 0, g = 0, b = 0;
+            for (int i = 0; i < pixelCount; i++)
+            {
+                int idx = i * 4;
+
+                // 获取各个通道的值
+#if ANDROID
+                // Android平台：像素顺序为RGBA
+                r = pixels[idx];
+                g = pixels[idx + 1];
+                b = pixels[idx + 2];
+#endif
+
+#if WINDOWS
+        // Windows平台：像素顺序为BGRA
+                b = pixels[idx];
+                g = pixels[idx + 1];
+                r = pixels[idx + 2];
+#endif
+
+                // 计算灰度值
+                gray = (byte)(r * 0.299f + g * 0.587f + b * 0.114f);
+                if (true)
+                {
+#if ANDROID
+                    // Android平台：像素顺序为RGBA
+                    pixels[idx] = (byte)(255 - pixels[idx]);     // R通道反转
+                    pixels[idx + 1] = (byte)(255 - pixels[idx + 1]); // G通道反转
+                    pixels[idx + 2] = (byte)(255 - pixels[idx + 2]); // B通道反转
+                                                                     // Alpha通道保持不变
+#endif
+
+#if WINDOWS
+            // Windows平台：像素顺序为BGRA
+            pixels[idx] = (byte)(255 - pixels[idx]);     // B通道反转
+            pixels[idx + 1] = (byte)(255 - pixels[idx + 1]); // G通道反转
+            pixels[idx + 2] = (byte)(255 - pixels[idx + 2]); // R通道反转
+            // Alpha通道保持不变
+#endif
+                }
             }
         }
 
@@ -711,17 +766,17 @@ namespace PhotoProcess
                 // 灰度值：直接计算灰度值
                 ChannelDiffMode.Gray => CalculateGray(r, g, b),
                 // 标准差异：突出红色与背景的差异
-                ChannelDiffMode.Standard => (byte)Math.Clamp(0.5*(r - (g + b) / 2), 0, 255),
+                ChannelDiffMode.Standard => (byte)Math.Clamp((r - (g + b) / 2), 0, 255),
                 // 增强红色：更强烈的红色对比
-                ChannelDiffMode.EnhancedRed => (byte)Math.Clamp(0.5*( 2 * r - g - b), 0, 255),
+                ChannelDiffMode.EnhancedRed => (byte)Math.Clamp(( 2 * r - g - b)/2, 0, 255),
                 // 增强绿蓝：突出绿色与蓝色的差异
-                ChannelDiffMode.EnhancedGreenBlue => (byte)Math.Clamp(0.5*((g + b)/2 - 0.3f * r), 0, 255),
+                ChannelDiffMode.EnhancedGreenBlue => (byte)Math.Clamp(((g + b)/2 - 0.3f * r)/2, 0, 255),
                 // 绿蓝差异：突出绿色与蓝色的差异
-                ChannelDiffMode.GreenBlueDiff => (byte)Math.Abs(0.5*(g - b)),
+                ChannelDiffMode.GreenBlueDiff => (byte)Math.Abs((g - b)),
                 // 目标颜色增强：针对特定目标颜色增强
                 ChannelDiffMode.TargetColor => CalculateTargetColorDiff(r, g, b),
                 // 最大通道差异：计算最大通道差异
-                ChannelDiffMode.MaxDifference => (byte)(0.5*(Math.Max(Math.Abs(r - g), Math.Max(Math.Abs(g - b), Math.Abs(b - r))))),
+                ChannelDiffMode.MaxDifference => (byte)((Math.Max(Math.Abs(r - g), Math.Max(Math.Abs(g - b), Math.Abs(b - r))))),
                 // PCA融合：使用主成分分析融合通道
                 ChannelDiffMode.PCA => CalculatePCADiff(r, g, b),
                 _ => (byte)Math.Clamp(r - (g + b) / 2, 0, 200)
@@ -741,7 +796,7 @@ namespace PhotoProcess
 
             // 归一化到0-255范围
             // 自然图像中，投影值通常在0-255范围内
-            return (byte)Math.Clamp(0.8*projection, 0, 255);
+            return (byte)Math.Clamp(projection, 0, 255);
         }
 
         // 完整的PCA融合方法（可训练版本）

@@ -81,6 +81,11 @@ public partial class RGBAnazy : ContentPage
 
     private async void AutoModeButton_Clicked(object sender, EventArgs e)
     {
+        if(imageProcess._processedBitmap  == null)
+        {
+            await DisplayAlert("错误", "请先加载图片", "确定");
+            return;
+        }
         try
         {
             ProcessingIndicator.IsVisible = true;
@@ -99,7 +104,7 @@ public partial class RGBAnazy : ContentPage
                     imageProcess.ApplyGrayscale(imageProcess._processedBitmap);
                     await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
 
-                    await imageProcess.FanApplyBinary(imageProcess._processedBitmap, 80);
+                    await imageProcess.ApplyBinary(imageProcess._processedBitmap, 127);
                     // 更新显示
                     await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
                     // 步骤3: 最大区域提取
@@ -124,9 +129,26 @@ public partial class RGBAnazy : ContentPage
                     //    waveformCanvas.InvalidateSurface();
                     //});
 
+
+
+
+
                     // 步骤5: 应用RGB滤波器
                     imageProcess.ApplyRGBFilter(imageProcess._processedBitmap);
                     await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
+
+
+
+                    //imageProcess.ApplyInvertRGB(imageProcess._processedBitmap);
+                    //await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
+
+
+
+
+                    imageProcess.ApplyChannelDiff(imageProcess._processedBitmap, imageProcess.CurrentAnalysisMode);
+                    await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
+
+
                     Device.BeginInvokeOnMainThread(() =>
                     {
                         waveformCanvas.InvalidateSurface();
@@ -296,7 +318,7 @@ public partial class RGBAnazy : ContentPage
         /*
          * 滤波算法 - 使用移动平均滤波器
          */
-        int windowSize = 5; // 滤波窗口大小（奇数）
+        int windowSize = 3; // 滤波窗口大小（奇数）
         int halfWindow = windowSize / 2;
         byte[] filteredValues = new byte[segmentWidth];
         for (int i = 0; i < segmentWidth; i++)
@@ -406,7 +428,7 @@ public partial class RGBAnazy : ContentPage
         }
         else if (tPeak == null && cPeak != null && cPeak.Area > 0)
         {
-            // 未找到T线，但C线存在 - T/C比值为0
+
             ratio = 0;
         }
 
@@ -504,6 +526,7 @@ public partial class RGBAnazy : ContentPage
             }
             // 显示T/C比值（基于面积）
             string ratioText = $"T/C: {ratio:F4}";
+            imageProcess.TCrate = ratio;
             // 测量文本宽度以居中显示
             float textWidth = ratioPaint.MeasureText(ratioText);
             // 计算水平居中位置
@@ -551,6 +574,87 @@ public partial class RGBAnazy : ContentPage
             {
                 // 更新当前分析模式
                 imageProcess.CurrentAnalysisMode = mode;
+            }
+        }
+    }
+
+    int touchnum;
+    private async void waveformCanvas_Touch(object sender, SKTouchEventArgs e)
+    {
+        touchnum++;
+        if (touchnum % 2 == 0)
+        {
+            if (imageProcess._DataValues == null) return;
+
+            try
+            {
+                string userInput = null;
+                bool isValidInput = false;
+
+                // 循环直到获得有效输入或用户取消
+                while (!isValidInput)
+                {
+                    // 弹出输入框获取用户数据
+                    userInput = await DisplayPromptAsync(
+                        "仪器实测数据",
+                        "请输入仪器实测的数据：",
+                        "确认",
+                        "不添加发送",
+                        "0",  // 默认值设为0
+                        maxLength: 20,
+                        keyboard: Keyboard.Numeric);  // 使用数字键盘
+
+                    // 用户点击取消
+                    if (userInput == null) break;
+
+                    // 检查是否为有效数字
+                    if (double.TryParse(userInput, out _))
+                    {
+                        isValidInput = true;
+                    }
+                    else
+                    {
+                        await DisplayAlert("输入错误", "请输入有效的数字", "确定");
+                    }
+                }
+
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"DataValues_{timestamp}.txt";
+                string folderPath = FileSystem.Current.AppDataDirectory;
+                string filePath = Path.Combine(folderPath, fileName);
+
+                var lines = new List<string>();
+                lines.Add($"# Mode: {analysisModePicker.SelectedItem}");
+                lines.Add($"# R: {RedCheckBox.IsChecked}, G: {GreenCheckBox.IsChecked}, B: {BlueCheckBox.IsChecked}");
+                lines.Add($"# T/C: {imageProcess.TCrate}");
+                lines.Add($"# Time: {timestamp}");
+
+                // 添加数据值（每行一个数值）
+                foreach (byte b in imageProcess._DataValues)
+                {
+                    lines.Add(b.ToString());
+                }
+
+                // 添加TCrate作为单独的数据行
+                lines.Add(imageProcess.TCrate.ToString());
+
+                // 添加用户输入作为单独的数据行（如果有）
+                if (isValidInput)
+                {
+                    lines.Add(userInput);
+                }
+
+                await File.WriteAllLinesAsync(filePath, lines);
+
+                await Share.RequestAsync(new ShareFileRequest
+                {
+                    Title = "分享数据文件",
+                    File = new ShareFile(filePath)
+                });
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("错误", $"保存/分享文件失败: {ex.Message}", "确定");
             }
         }
     }
