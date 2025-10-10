@@ -29,25 +29,25 @@
     <AppXManifest Include="F:\Code\VsWork\PhotoProcess\PhotoProcess\bin\Debug\net8.0-windows10.0.19041.0\win10-x64\AppxManifest.xml">
       <PackagePath>AppxManifest.xml</PackagePath>
       <ReRegisterAppIfChanged>true</ReRegisterAppIfChanged>
-      <Modified>2025-09-19T08:09:42.348</Modified>
+      <Modified>2025-10-09T09:52:36.736</Modified>
     </AppXManifest>
   </ItemGroup>
   <ItemGroup>
     <AppxPackagedFile Include="F:\Code\VsWork\PhotoProcess\PhotoProcess\bin\Debug\net8.0-windows10.0.19041.0\win10-x64\resources.pri">
       <PackagePath>resources.pri</PackagePath>
-      <Modified>2025-09-19T08:09:42.228</Modified>
+      <Modified>2025-10-09T09:49:02.493</Modified>
     </AppxPackagedFile>
     <AppxPackagedFile Include="F:\Code\VsWork\PhotoProcess\PhotoProcess\bin\Debug\net8.0-windows10.0.19041.0\win10-x64\PhotoProcess.runtimeconfig.json">
       <PackagePath>PhotoProcess.runtimeconfig.json</PackagePath>
-      <Modified>2025-09-19T08:09:42.126</Modified>
+      <Modified>2025-10-08T15:47:33.873</Modified>
     </AppxPackagedFile>
     <AppxPackagedFile Include="F:\Code\VsWork\PhotoProcess\PhotoProcess\bin\Debug\net8.0-windows10.0.19041.0\win10-x64\PhotoProcess.dll">
       <PackagePath>PhotoProcess.dll</PackagePath>
-      <Modified>2025-09-19T08:09:41.616</Modified>
+      <Modified>2025-10-09T09:52:36.150</Modified>
     </AppxPackagedFile>
     <AppxPackagedFile Include="F:\Code\VsWork\PhotoProcess\PhotoProcess\obj\Debug\net8.0-windows10.0.19041.0\win10-x64\apphost.exe">
       <PackagePath>PhotoProcess.exe</PackagePath>
-      <Modified>2025-09-19T08:09:41.803</Modified>
+      <Modified>2025-10-09T09:52:36.275</Modified>
     </AppxPackagedFile>
     <AppxPackagedFile Include="F:\Code\VsWork\PhotoProcess\PhotoProcess\Resources\Raw\AboutAssets.txt">
       <PackagePath>AboutAssets.txt</PackagePath>
@@ -287,7 +287,7 @@
     </AppxPackagedFile>
     <AppxPackagedFile Include="F:\Code\VsWork\PhotoProcess\PhotoProcess\bin\Debug\net8.0-windows10.0.19041.0\win10-x64\PhotoProcess.deps.json">
       <PackagePath>PhotoProcess.deps.json</PackagePath>
-      <Modified>2025-09-19T08:09:42.124</Modified>
+      <Modified>2025-10-09T09:49:01.959</Modified>
     </AppxPackagedFile>
     <AppxPackagedFile Include="C:\Users\13256\.nuget\packages\microsoft.windows.sdk.net.ref\10.0.19041.57\lib\net8.0\Microsoft.Windows.SDK.NET.dll">
       <PackagePath>Microsoft.Windows.SDK.NET.dll</PackagePath>

@@ -2,7 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="PhotoProcess.StartPage"
-             Title="Test strip analyzer"
+             Title="LFIA analyzer"
              BackgroundColor="White">
 
     <Grid RowDefinitions="*, *" 
@@ -12,7 +12,7 @@
 
 
         <!-- 蓝色 -->
-        <Button Text="​​Fluorescent Test Strip​"
+        <Button Text="​​Fluorescent LFIA​"
                 Grid.Row="0"
                 BackgroundColor="#4CAF50" 
                 TextColor="White"
@@ -22,7 +22,7 @@
                 Clicked="OnGrayscaleAnalysisClicked"/>
 
             <!-- 第三行：RGB分析按钮 -->
-        <Button Text="Visual Test Strip"
+        <Button Text="Visual LFIA"
                 Grid.Row="1"
                 BackgroundColor="#FF5722"
                 TextColor="White"

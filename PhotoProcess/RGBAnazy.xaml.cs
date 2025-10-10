@@ -1,3 +1,4 @@
+ï»¿using Microsoft.Maui.Platform;
 using SkiaSharp;
 using SkiaSharp.Views.Maui;
 using SkiaSharp.Views.Maui.Controls;
@@ -17,17 +18,7 @@ public partial class RGBAnazy : ContentPage
 
     private void InitializeAnalysisModePicker()
     {
-        // ÉèÖÃPickerµÄItemsSource
-        analysisModePicker.ItemsSource = analysisModes;
 
-        // ÉèÖÃÏÔÊ¾ÊôĞÔ
-        analysisModePicker.ItemDisplayBinding = new Binding("Name");
-
-        // ÉèÖÃÄ¬ÈÏÑ¡Ôñ
-        if (analysisModes.Count > 0)
-        {
-            analysisModePicker.SelectedIndex = 0;
-        }
     }
     private async void Button_Clicked(object sender, EventArgs e)
     {
@@ -36,12 +27,12 @@ public partial class RGBAnazy : ContentPage
             var status = await Permissions.RequestAsync<Permissions.StorageRead>();
             if (status != PermissionStatus.Granted)
             {
-                await DisplayAlert("È¨ÏŞ±»¾Ü¾ø", "ĞèÒª´æ´¢È¨ÏŞ²ÅÄÜ·ÃÎÊÍ¼Æ¬", "È·¶¨");
+                await DisplayAlert("æƒé™è¢«æ‹’ç»", "éœ€è¦å­˜å‚¨æƒé™æ‰èƒ½è®¿é—®å›¾ç‰‡", "ç¡®å®š");
                 return;
             }
             var options = new PickOptions
             {
-                PickerTitle = "Ñ¡ÔñÍ¼Æ¬",
+                PickerTitle = "é€‰æ‹©å›¾ç‰‡",
                 FileTypes = FilePickerFileType.Images
             };
             var result = await FilePicker.Default.PickAsync(options);
@@ -59,21 +50,18 @@ public partial class RGBAnazy : ContentPage
                 original.Dispose();
                 original = resized;
             }
-
-            // ¸üĞÂÎ»Í¼ÒıÓÃ
             imageProcess._originalBitmap?.Dispose();
             imageProcess._processedBitmap?.Dispose();
             imageProcess._originalBitmap = original.Copy();
-            imageProcess._processedBitmap = imageProcess._originalBitmap.Copy(); // ±£ÁôÔ­Ê¼²ÊÉ«Í¼Ïñ
+            imageProcess._processedBitmap = imageProcess._originalBitmap.Copy(); 
             await UpdateImageDisplayAsync();
         }
         catch (Exception ex)
         {
-            await DisplayAlert("´íÎó", $"´ò¿ªÍ¼Æ¬Ê§°Ü: {ex.Message}", "È·¶¨");
+            await DisplayAlert("é”™è¯¯", $"æ‰“å¼€å›¾ç‰‡å¤±è´¥: {ex.Message}", "ç¡®å®š");
         }
         finally
         {
-            // Òş²Ø¼ÓÔØÖ¸Ê¾Æ÷
             ProcessingIndicator.IsVisible = false;
             ProcessingIndicator.IsRunning = false;
         }
@@ -83,7 +71,7 @@ public partial class RGBAnazy : ContentPage
     {
         if(imageProcess._processedBitmap  == null)
         {
-            await DisplayAlert("´íÎó", "ÇëÏÈ¼ÓÔØÍ¼Æ¬", "È·¶¨");
+            await DisplayAlert("é”™è¯¯", "è¯·å…ˆåŠ è½½å›¾ç‰‡", "ç¡®å®š");
             return;
         }
         try
@@ -91,64 +79,50 @@ public partial class RGBAnazy : ContentPage
             ProcessingIndicator.IsVisible = true;
             ProcessingIndicator.IsRunning = true;
             AutoModeButton.IsEnabled = false;
-            imageProcess._processedBitmap = imageProcess._originalBitmap.Copy(); ; // ¸üĞÂÍ¼Ïñ´¦ÀíÀàµÄÒıÓÃ
-                                                                                   // »ñÈ¡µ±Ç°ãĞÖµ
+            imageProcess._processedBitmap = imageProcess._originalBitmap.Copy(); ; 
+                                                                                  
             byte threshold = 10;
 
             await Task.Run(async () =>
             {
                 try
                 {
-                    // ²½Öè1: »Ò¶È»¯
                     Device.BeginInvokeOnMainThread(() => ProcessingIndicator.IsRunning = true);
                     imageProcess.ApplyGrayscale(imageProcess._processedBitmap);
                     await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
 
-                    await imageProcess.ApplyBinary(imageProcess._processedBitmap, 127);
-                    // ¸üĞÂÏÔÊ¾
+                    await imageProcess.ApplyBinary(imageProcess._processedBitmap, 150);
                     await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
-                    // ²½Öè3: ×î´óÇøÓòÌáÈ¡
+
+
+                    Device.BeginInvokeOnMainThread(() =>
+                    {
+                        waveformCanvas.InvalidateSurface();
+                    });
                     using var binaryBitmap = imageProcess._processedBitmap.Copy();
                     SKRectI boundingBox = imageProcess.FindLargestConnectedComponent(binaryBitmap);
-                    // ÔÚÔ­Ê¼²ÊÉ«Í¼ÏñÉÏ²Ã¼ô¸ÃÇøÓò
                     imageProcess.CropToRegion(imageProcess._originalBitmap, boundingBox, ref imageProcess._processedBitmap);
-                    // ¸üĞÂÏÔÊ¾
                     await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
-                    // ²½Öè4: Èç¹û¸ß´óÓÚ¿íÔòĞı×ª90¶È
                     if (imageProcess._processedBitmap.Height > imageProcess._processedBitmap.Width)
                     {
                         imageProcess.Rotate90(ref imageProcess._processedBitmap);
-                        // ¸üĞÂÏÔÊ¾
                         await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
                     }
 
                     imageProcess._saveBitmap = imageProcess._processedBitmap.Copy();
                     //imageProcess.ApplyGrayscale(imageProcess._processedBitmap);
                     //await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
-                    //Device.BeginInvokeOnMainThread(() => {
-                    //    waveformCanvas.InvalidateSurface();
-                    //});
-
-
-
-
-
-                    // ²½Öè5: Ó¦ÓÃRGBÂË²¨Æ÷
-                    imageProcess.ApplyRGBFilter(imageProcess._processedBitmap);
-                    await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
-
-
-
-                    //imageProcess.ApplyInvertRGB(imageProcess._processedBitmap);
+                    Device.BeginInvokeOnMainThread(() =>
+                    {
+                        waveformCanvas.InvalidateSurface();
+                    });
+                    //imageProcess.ApplyInvertSmart(imageProcess._processedBitmap);
                     //await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
-
-
-
+                    //imageProcess.ApplyRGBFilter(imageProcess._processedBitmap);
+                    await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
 
                     imageProcess.ApplyChannelDiff(imageProcess._processedBitmap, imageProcess.CurrentAnalysisMode);
                     await Device.InvokeOnMainThreadAsync(async () => await UpdateImageDisplayAsync());
-
-
                     Device.BeginInvokeOnMainThread(() =>
                     {
                         waveformCanvas.InvalidateSurface();
@@ -173,48 +147,30 @@ public partial class RGBAnazy : ContentPage
     {
         try
         {
-            // ÇëÇó´æ´¢È¨ÏŞ
             var status = await Permissions.RequestAsync<Permissions.StorageWrite>();
             if (status != PermissionStatus.Granted)
             {
-                await DisplayAlert("È¨ÏŞ±»¾Ü¾ø", "ĞèÒª´æ´¢È¨ÏŞ²ÅÄÜ±£´æÍ¼Æ¬", "È·¶¨");
+                await DisplayAlert("æƒé™è¢«æ‹’ç»", "éœ€è¦å­˜å‚¨æƒé™æ‰èƒ½ä¿å­˜å›¾ç‰‡", "ç¡®å®š");
                 return;
             }
-
-            // ¼ì²éÊÇ·ñÓĞ²Ã¼ôºóµÄ²ÊÉ«Í¼Ïñ
             if (imageProcess._saveBitmap == null)
             {
-                await DisplayAlert("´íÎó", "Ã»ÓĞ¿ÉÓÃµÄ²Ã¼ôÍ¼Ïñ", "È·¶¨");
+                await DisplayAlert("é”™è¯¯", "æ²¡æœ‰å¯ç”¨çš„è£å‰ªå›¾åƒ", "ç¡®å®š");
                 return;
             }
-
-            // »ñÈ¡²¨ĞÎÍ¼³ß´ç
             int waveformWidth = (int)waveformCanvas.CanvasSize.Width;
             int waveformHeight = (int)waveformCanvas.CanvasSize.Height;
-
-            // È·¶¨ºÏ²¢Í¼ÏñµÄ¿í¶È£¨È¡Á½ÕßÖĞ½Ï´óµÄ¿í¶È£©
             int combinedWidth = Math.Max(imageProcess._saveBitmap.Width, waveformWidth);
-
-            // ´´½¨²¨ĞÎÍ¼£¨Ê¹ÓÃºÏ²¢Í¼ÏñµÄ¿í¶È£©
             using (var waveformSurface = SKSurface.Create(new SKImageInfo(combinedWidth, waveformHeight)))
             {
                 var waveformCanvasSurface = waveformSurface.Canvas;
-
-                // ÖØĞÂ»æÖÆ²¨ĞÎÍ¼ÒÔÊÊÓ¦ĞÂ¿í¶È
                 DrawWaveform(waveformCanvasSurface, combinedWidth, waveformHeight);
-
                 using var waveformImage = waveformSurface.Snapshot();
-
-                // ¼ÆËãºÏ²¢Í¼Ïñ¸ß¶È
-                int combinedHeight = imageProcess._saveBitmap.Height + waveformHeight + 100; // Ìí¼Ó±êÌâ¿Õ¼ä
-
-                // ´´½¨ºÏ²¢Í¼Ïñ£¨²Ã¼ôÍ¼ÏñÔÚÉÏ£¬²¨ĞÎÍ¼ÔÚÏÂ£©
+                int combinedHeight = imageProcess._saveBitmap.Height + waveformHeight + 100;
                 using (var combinedSurface = SKSurface.Create(new SKImageInfo(combinedWidth, combinedHeight)))
                 {
                     var combinedCanvas = combinedSurface.Canvas;
                     combinedCanvas.Clear(SKColors.White);
-
-                    // Ìí¼Ó±êÌâ
                     using var titlePaint = new SKPaint
                     {
                         Color = SKColors.Black,
@@ -222,33 +178,22 @@ public partial class RGBAnazy : ContentPage
                         IsAntialias = true,
                         TextAlign = SKTextAlign.Center
                     };
-                    //combinedCanvas.DrawText("CTÊÔÖ½·ÖÎö½á¹û", combinedWidth / 2, 30, titlePaint);
-
-                    // »æÖÆ²Ã¼ôºóµÄÔ­Ê¼Í¼Ïñ£¨¾ÓÖĞ£©
                     int croppedX = (combinedWidth - imageProcess._saveBitmap.Width) / 2;
-                    combinedCanvas.DrawBitmap(imageProcess._saveBitmap, croppedX, 50); // ±êÌâÏÂ·½Áô³ö¿Õ¼ä
-
-                    // »æÖÆ²¨ĞÎÍ¼£¨¾ÓÖĞ£©
-                    int waveformX = (combinedWidth - combinedWidth) / 2; // ²¨ĞÎÍ¼¿í¶ÈÓëºÏ²¢Í¼ÏñÏàÍ¬
-                    int waveformY = imageProcess._saveBitmap.Height + 50; // ±êÌâÏÂ·½Áô³ö¿Õ¼ä
+                    combinedCanvas.DrawBitmap(imageProcess._saveBitmap, croppedX, 50);
+                    int waveformX = (combinedWidth - combinedWidth) / 2;
+                    int waveformY = imageProcess._saveBitmap.Height + 50; 
                     combinedCanvas.DrawImage(waveformImage, waveformX, waveformY);
-
-                    // ±£´æºÏ²¢Í¼Ïñ
                     using var combinedImage = combinedSurface.Snapshot();
                     using var data = combinedImage.Encode(SKEncodedImageFormat.Png, 100);
                     string fileName = $"CT_Analysis_{DateTime.Now:yyyyMMdd_HHmmss}.png";
                     string filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
-
-                    // ±£´æÎÄ¼şµ½»º´æ
                     using (var stream = File.OpenWrite(filePath))
                     {
                         data.SaveTo(stream);
                     }
-
-                    // Ê¹ÓÃ¹²Ïí¹¦ÄÜÈÃÓÃ»§Ñ¡Ôñ±£´æÎ»ÖÃ£¨°üÀ¨Ïà²á£©
                     await Share.Default.RequestAsync(new ShareFileRequest
                     {
-                        Title = "CTÊÔÖ½·ÖÎö½á¹û",
+                        Title = "CTè¯•çº¸åˆ†æç»“æœ",
                         File = new ShareFile(filePath)
                     });
                 }
@@ -256,10 +201,9 @@ public partial class RGBAnazy : ContentPage
         }
         catch (Exception ex)
         {
-            await DisplayAlert("´íÎó", $"±£´æ·ÖÎö½á¹ûÊ§°Ü: {ex.Message}", "È·¶¨");
+            await DisplayAlert("é”™è¯¯", $"ä¿å­˜åˆ†æç»“æœå¤±è´¥: {ex.Message}", "ç¡®å®š");
         }
     }
-
     private void OnWaveformPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
     {
         var surface = e.Surface;
@@ -267,14 +211,6 @@ public partial class RGBAnazy : ContentPage
         var info = e.Info;
         DrawWaveform(canvas, info.Width, info.Height);
     }
-    private void OnChannelCheckedChanged(object sender, EventArgs e)
-    {
-        // ¸üĞÂÍ¨µÀÆôÓÃ×´Ì¬
-        imageProcess._R_enabled = RedCheckBox.IsChecked;
-        imageProcess._G_enabled = GreenCheckBox.IsChecked;
-        imageProcess._B_enabled = BlueCheckBox.IsChecked;
-    }
-
     private async Task UpdateImageDisplayAsync()
     {
         if (imageProcess._processedBitmap != null)
@@ -287,7 +223,6 @@ public partial class RGBAnazy : ContentPage
             waveformCanvas.InvalidateSurface();
         }
     }
-
     private void DrawWaveform(SKCanvas canvas, int width, int height)
     {
         if (imageProcess._DataValues == null || imageProcess._DataValues.Length == 0)
@@ -298,62 +233,77 @@ public partial class RGBAnazy : ContentPage
         float scaleX = (float)width / segmentWidth;
         float scaleY = (float)height / 255;
 
-        // ¼ÆËãÕû¸ö²¨ĞÎµÄÆ½¾ùÖµ
+        // ä¿å­˜åŸå§‹æ•°æ®ç”¨äºé¢ç§¯è®¡ç®—
+        int[] originalIntValues = new int[imageProcess._DataValues.Length];
+        for (int i = 0; i < imageProcess._DataValues.Length; i++)
+        {
+            originalIntValues[i] = imageProcess._DataValues[i];
+        }
+
+        // åº”ç”¨Savitzky-Golayæ»¤æ³¢å™¨ä¿ç•™è¾¹ç•Œç‰¹å¾ï¼ˆç”¨äºå³°æ£€æµ‹ï¼‰
+        byte[] filteredValues = ApplySavitzkyGolayFilter(imageProcess._DataValues, 5, 2);
+
+        // è®¡ç®—å…¨å±€å¹³å‡å€¼ï¼ˆåŸºäºæ»¤æ³¢åæ•°æ®ï¼‰
         double average = 0;
-        foreach (byte value in imageProcess._DataValues)
+        foreach (byte value in filteredValues)
         {
             average += value;
         }
-        average /= imageProcess._DataValues.Length;
+        average /= filteredValues.Length;
         float averageY = (float)(height - average * scaleY);
 
-        // ¼ÆËã»ùÏß£¨Ê¹ÓÃÕûÌåÊı¾İµÄÖĞÎ»Êı£¬²¢ÊÊµ±Ìá¸ß£©
-        var allValues = new List<byte>(imageProcess._DataValues);
-        allValues.Sort();
-        double baseline = allValues[allValues.Count / 2]; // ÖĞÎ»Êı
-        baseline = baseline * 1.2; // Ìá¸ß20%
-        baseline = Math.Min(baseline, 255); // È·±£²»³¬¹ı255
-        float baselineY = (float)(height - baseline * scaleY);
-
-        /*
-         * ÂË²¨Ëã·¨ - Ê¹ÓÃÒÆ¶¯Æ½¾ùÂË²¨Æ÷
-         */
-        int windowSize = 3; // ÂË²¨´°¿Ú´óĞ¡£¨ÆæÊı£©
-        int halfWindow = windowSize / 2;
-        byte[] filteredValues = new byte[segmentWidth];
-        for (int i = 0; i < segmentWidth; i++)
+        // ä½¿ç”¨æ»¤æ³¢åæ•°æ®è¿›è¡Œæ³¢å³°æ£€æµ‹
+        int[] filteredIntValues = new int[filteredValues.Length];
+        for (int i = 0; i < filteredValues.Length; i++)
         {
-            int sum = 0;
-            int count = 0;
+            filteredIntValues[i] = filteredValues[i];
+        }
 
-            // ¼ÆËã´°¿ÚÄÚµÄÆ½¾ùÖµ
-            for (int j = -halfWindow; j <= halfWindow; j++)
+        // ä½¿ç”¨æ‚¨å®Œå–„çš„æ³¢å³°æ£€æµ‹ç®—æ³•ï¼ˆåŸºäºæ»¤æ³¢åæ•°æ®ï¼‰
+        var peaks = imageProcess.FindPeaksBasedOnAverage(filteredIntValues);
+
+        // å°†æ•°æ®åˆ†ä¸ºå·¦å³ä¸¤éƒ¨åˆ†ï¼ˆåŸºäºå³°çš„ä½ç½®åˆ†å¸ƒï¼‰
+        int midPoint = FindOptimalSplitPoint(peaks, segmentWidth);
+        byte[] leftData = new byte[midPoint];
+        byte[] rightData = new byte[segmentWidth - midPoint];
+        Array.Copy(filteredValues, 0, leftData, 0, midPoint);
+        Array.Copy(filteredValues, midPoint, rightData, 0, segmentWidth - midPoint);
+
+        // è®¡ç®—å·¦ä¾§åŸºçº¿ï¼ˆåŸºäºæ»¤æ³¢åæ•°æ®ï¼‰
+        double leftBaseline = CalculateBaseline(leftData);
+        float leftBaselineY = (float)(height - leftBaseline * scaleY);
+
+        // è®¡ç®—å³ä¾§åŸºçº¿ï¼ˆåŸºäºæ»¤æ³¢åæ•°æ®ï¼‰
+        double rightBaseline = CalculateBaseline(rightData);
+        float rightBaselineY = (float)(height - rightBaseline * scaleY);
+
+        // ä½¿ç”¨æ‚¨å®Œå–„çš„T/Cå³°è¯†åˆ«ç®—æ³•
+        imageProcess.IdentifyTCPeaks(peaks, filteredIntValues.Length);
+
+        // ä¸ºæ¯ä¸ªå³°åˆ†é…å¯¹åº”çš„åŸºçº¿å¹¶è®¡ç®—é¢ç§¯ï¼ˆä½¿ç”¨åŸå§‹æ•°æ®ï¼‰
+        foreach (var peak in peaks)
+        {
+            // æ ¹æ®å³°ä½ç½®é€‰æ‹©å¯¹åº”çš„åŸºçº¿
+            double baseline = peak.Position < midPoint ? leftBaseline : rightBaseline;
+
+            // ä½¿ç”¨æ»¤æ³¢åæ•°æ®ç¡®å®šè¾¹ç•Œ
+            var boundaries = FindPeakBoundaries(filteredIntValues, peak.Position, baseline);
+            peak.Start = boundaries.start;
+            peak.End = boundaries.end;
+
+            // æ¢¯å½¢æ³•è®¡ç®—é¢ç§¯ï¼ˆä½¿ç”¨åŸå§‹æ•°æ®å’Œæ»¤æ³¢åç¡®å®šçš„åŸºçº¿ï¼‰
+            double area = 0;
+            for (int i = peak.Start; i < peak.End; i++)
             {
-                if(i + j < 0 || i + j >= segmentWidth)
-                    continue; // Ìø¹ı±ß½çÍâµÄË÷Òı
-                int index = i + j;
-                if (index >= 0 && index < segmentWidth)
-                {
-                    sum += imageProcess._DataValues[index];
-                    count++;
-                }
+                // ä½¿ç”¨åŸå§‹æ•°æ®å’Œå¯¹åº”çš„åŸºçº¿
+                double height1 = Math.Max(0, originalIntValues[i] - baseline);
+                double height2 = Math.Max(0, originalIntValues[i + 1] - baseline);
+                area += (height1 + height2) * 0.5;
             }
-
-            filteredValues[i] = (byte)(sum / count);
+            peak.Area = area;
         }
 
-        // ÖĞ¼äÊı¾İÉèÖÃÎª»ùÏß
-        int centerIndex = segmentWidth / 2;
-        int startIndex = Math.Max(0, centerIndex - 2);
-        int endIndex = Math.Min(segmentWidth - 1, centerIndex + 2);
-        byte baselineValue = (byte)Math.Max(0, Math.Min(255, baseline - 2)); // ¼ÆËã»ùÏßÖµ¼õ2£¬²¢È·±£ÔÚ0~255Ö®¼ä
-
-        for (int i = startIndex; i <= endIndex; i++)
-        {
-            filteredValues[i] = baselineValue;
-        }
-
-        // »æÖÆÕû¸ö²¨ĞÎ£¨Ê¹ÓÃÂË²¨ºóµÄÊı¾İ£©
+        // ç»˜åˆ¶æ³¢å½¢ï¼ˆä½¿ç”¨æ»¤æ³¢åæ•°æ®ï¼‰
         using var path = new SKPath();
         path.MoveTo(0, height - filteredValues[0] * scaleY);
         for (int i = 1; i < segmentWidth; i++)
@@ -371,7 +321,7 @@ public partial class RGBAnazy : ContentPage
         };
         canvas.DrawPath(path, paint);
 
-        // »æÖÆÆ½¾ùÖµÏß
+        // ç»˜åˆ¶å¹³å‡å€¼çº¿
         using var avgPaint = new SKPaint
         {
             Style = SKPaintStyle.Stroke,
@@ -382,8 +332,8 @@ public partial class RGBAnazy : ContentPage
         };
         canvas.DrawLine(0, averageY, width, averageY, avgPaint);
 
-        // »æÖÆ»ùµ×Ïß£¨ÂÌÉ«ĞéÏß£©
-        using var baselinePaint = new SKPaint
+        // ç»˜åˆ¶å·¦ä¾§åŸºçº¿
+        using var leftBaselinePaint = new SKPaint
         {
             Style = SKPaintStyle.Stroke,
             Color = SKColors.Green,
@@ -391,36 +341,32 @@ public partial class RGBAnazy : ContentPage
             IsAntialias = true,
             PathEffect = SKPathEffect.CreateDash(new float[] { 5, 5 }, 0)
         };
-        canvas.DrawLine(0, baselineY, width, baselineY, baselinePaint);
+        canvas.DrawLine(0, leftBaselineY, midPoint * scaleX, leftBaselineY, leftBaselinePaint);
 
-        // Ìí¼Ó»ùÏß±êÇ©
+        // ç»˜åˆ¶å³ä¾§åŸºçº¿
+        using var rightBaselinePaint = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            Color = SKColors.DarkGreen,
+            StrokeWidth = 1,
+            IsAntialias = true,
+            PathEffect = SKPathEffect.CreateDash(new float[] { 5, 5 }, 0)
+        };
+        canvas.DrawLine(midPoint * scaleX, rightBaselineY, width, rightBaselineY, rightBaselinePaint);
+
+        // ç»˜åˆ¶åŸºçº¿æ–‡æœ¬
         using var baselineTextPaint = new SKPaint
         {
             Color = SKColors.Green,
             TextSize = 20,
             IsAntialias = true
         };
-        canvas.DrawText($"Base: {baseline:F1}", 10, baselineY - 5, baselineTextPaint);
+        canvas.DrawText($"L-Base: {leftBaseline:F1}", 10, leftBaselineY - 5, baselineTextPaint);
+        canvas.DrawText($"R-Base: {rightBaseline:F1}", width - 150, rightBaselineY - 5, baselineTextPaint);
 
-        // ====== ĞŞ¸Ä²¿·Ö£ºÊ¹ÓÃ»ùÓÚÆ½¾ùÏßµÄ²¨·å¼ì²âËã·¨£¨´óÓÚÆ½¾ù5%£© ======
-        // ½« _grayValues (byte[]) ×ª»»Îª int[]
-        int[] grayIntValues = new int[filteredValues.Length];
-        for (int i = 0; i < filteredValues.Length; i++)
-        {
-            grayIntValues[i] = filteredValues[i];
-        }
-
-        // ÔÚ·½·¨ÄÚ²¿¼ì²â²¨·å
-        var peaks = imageProcess.FindPeaksBasedOnAverage(grayIntValues);
-
-        // ĞŞ¸Ä£º¸ù¾İ¹Ì¶¨Î»ÖÃÊ¶±ğTÏßºÍCÏß£¨×ó±ßTÏß£¬ÓÒ±ßCÏß£©
-        imageProcess.IdentifyTCPeaks(peaks, grayIntValues.Length);
-
-        // »ñÈ¡TÏßºÍCÏß
+        // è®¡ç®—T/Cæ¯”ç‡
         var tPeak = peaks.FirstOrDefault(p => p.IsT);
         var cPeak = peaks.FirstOrDefault(p => p.IsC);
-
-        // ¼ÆËãT/C±ÈÖµ£¨»ùÓÚÃæ»ı£©
         double ratio = 0;
         if (tPeak != null && cPeak != null && cPeak.Area > 0)
         {
@@ -428,10 +374,10 @@ public partial class RGBAnazy : ContentPage
         }
         else if (tPeak == null && cPeak != null && cPeak.Area > 0)
         {
-
             ratio = 0;
         }
 
+        // åªç»˜åˆ¶Tå³°å’ŒCå³°
         if (peaks.Count > 0)
         {
             using var highlightPaint = new SKPaint
@@ -444,11 +390,10 @@ public partial class RGBAnazy : ContentPage
             using var fillPaint = new SKPaint
             {
                 Style = SKPaintStyle.Fill,
-                Color = new SKColor(0, 200, 0, 100), // °ëÍ¸Ã÷ÂÌÉ«
+                Color = new SKColor(0, 200, 0, 100),
                 IsAntialias = true
             };
 
-            // µ÷Õû²¨·å±êÇ©×ÖÌå´óĞ¡
             using var textPaint = new SKPaint
             {
                 Color = SKColors.Black,
@@ -456,7 +401,6 @@ public partial class RGBAnazy : ContentPage
                 IsAntialias = true
             };
 
-            // µ÷ÕûCT±ÈÖµ×ÖÌå´óĞ¡
             using var ratioPaint = new SKPaint
             {
                 Color = SKColors.Black,
@@ -464,22 +408,19 @@ public partial class RGBAnazy : ContentPage
                 IsAntialias = true
             };
 
-            // »æÖÆËùÓĞ¼ì²âµ½µÄ²¨·å
-            foreach (var peak in peaks)
+            // åªç»˜åˆ¶Tå³°å’ŒCå³°
+            foreach (var peak in peaks.Where(p => p.IsT || p.IsC))
             {
-                // È·±£·åÖµÎ»ÖÃÔÚÊı×é·¶Î§ÄÚ
-                int safePosition = Math.Clamp(peak.Position, 0, grayIntValues.Length - 1);
+                int safePosition = Math.Clamp(peak.Position, 0, filteredIntValues.Length - 1);
                 float x = safePosition * scaleX;
-                float y = height - grayIntValues[safePosition] * scaleY;
+                float y = height - filteredIntValues[safePosition] * scaleY;
 
-                // ±ê¼Ç²¨·åÖĞĞÄ
+                // ç»˜åˆ¶å³°é¡¶æ ‡è®°
                 canvas.DrawCircle(x, y, 5, highlightPaint);
 
-                // È·±£·åÖµ·¶Î§ÔÚÊı×é·¶Î§ÄÚ
-                int safeStart = Math.Clamp(peak.Start, 0, grayIntValues.Length - 1);
-                int safeEnd = Math.Clamp(peak.End, 0, grayIntValues.Length - 1);
+                int safeStart = Math.Clamp(peak.Start, 0, filteredIntValues.Length - 1);
+                int safeEnd = Math.Clamp(peak.End, 0, filteredIntValues.Length - 1);
 
-                // È·±£¿ªÊ¼Î»ÖÃ²»´óÓÚ½áÊøÎ»ÖÃ
                 if (safeStart > safeEnd)
                 {
                     (safeStart, safeEnd) = (safeEnd, safeStart);
@@ -488,99 +429,244 @@ public partial class RGBAnazy : ContentPage
                 float startX = safeStart * scaleX;
                 float endX = safeEnd * scaleX;
 
-                // ´´½¨Ö»°üº¬¸ßÓÚ»ùÏß²¿·ÖµÄÂ·¾¶
+                // ç¡®å®šå³°åŒºåŸŸå¯¹åº”çš„åŸºçº¿
+                float baselineY = peak.Position < midPoint ? leftBaselineY : rightBaselineY;
+
+                // ç»˜åˆ¶å³°åŒºåŸŸå¡«å……
                 using (var peakPath = new SKPath())
                 {
                     peakPath.MoveTo(startX, baselineY);
-
-                    // ´ÓÆğµãµ½²¨·åÆğµã
                     for (int i = safeStart; i <= safeEnd; i++)
                     {
-                        // È·±£Ë÷ÒıÔÚÊı×é·¶Î§ÄÚ
-                        if (i < 0 || i >= grayIntValues.Length) continue;
+                        if (i < 0 || i >= filteredIntValues.Length) continue;
 
                         float xi = i * scaleX;
-                        // Ê¹ÓÃÂË²¨ºóµÄÖµ£¬È·±£ÖµÔÚºÏÀí·¶Î§ÄÚ
-                        float dataValue = Math.Clamp(grayIntValues[i], 0, 255);
+                        float dataValue = Math.Clamp(filteredIntValues[i], 0, 255);
+
+                        // ä½¿ç”¨å³°å¯¹åº”çš„åŸºçº¿è®¡ç®—é«˜åº¦
+                        double baseline = peak.Position < midPoint ? leftBaseline : rightBaseline;
                         float yi = height - Math.Max((float)baseline, dataValue) * scaleY;
+
                         peakPath.LineTo(xi, yi);
                     }
-
-                    // ´Ó²¨·åÖÕµã»Øµ½Æğµã
                     peakPath.LineTo(endX, baselineY);
                     peakPath.Close();
-
-                    // Ìî³ä²¨·åÇøÓò
                     canvas.DrawPath(peakPath, fillPaint);
                 }
 
-                // Ìí¼Ó±êÇ©
-                string label = peak.IsT ? "T" : peak.IsC ? "C" : "P";
+                // ç»˜åˆ¶å³°æ ‡ç­¾
+                string label = peak.IsT ? "T" : "C";
                 canvas.DrawText($"{label}:{peak.Area:F0}", x, y - 10, textPaint);
             }
 
-            // ÏÔÊ¾×´Ì¬ĞÅÏ¢
-            if (tPeak == null)
-            {
-                ratio = 0;
-            }
-            // ÏÔÊ¾T/C±ÈÖµ£¨»ùÓÚÃæ»ı£©
+            // ç»˜åˆ¶T/Cæ¯”ç‡
             string ratioText = $"T/C: {ratio:F4}";
             imageProcess.TCrate = ratio;
-            // ²âÁ¿ÎÄ±¾¿í¶ÈÒÔ¾ÓÖĞÏÔÊ¾
             float textWidth = ratioPaint.MeasureText(ratioText);
-            // ¼ÆËãË®Æ½¾ÓÖĞÎ»ÖÃ
             float centerX = (width - textWidth) / 2;
-            // ´¹Ö±Î»ÖÃ±£³ÖÔ­Ñù£¨40ÏñËØ£©
             canvas.DrawText(ratioText, centerX, 40, ratioPaint);
         }
     }
 
+    // Savitzky-Golayæ»¤æ³¢å™¨
+    private byte[] ApplySavitzkyGolayFilter(byte[] data, int windowSize, int polynomialOrder)
+    {
+        if (windowSize % 2 == 0) windowSize++; // ç¡®ä¿çª—å£å¤§å°ä¸ºå¥‡æ•°
+        int halfWindow = windowSize / 2;
+        byte[] filtered = new byte[data.Length];
+
+        // é¢„è®¡ç®—ç³»æ•°
+        double[] coefficients = CalculateSavitzkyGolayCoefficients(windowSize, polynomialOrder);
+
+        for (int i = 0; i < data.Length; i++)
+        {
+            double sum = 0;
+            for (int j = -halfWindow; j <= halfWindow; j++)
+            {
+                int index = i + j;
+                if (index < 0) index = 0;
+                if (index >= data.Length) index = data.Length - 1;
+
+                sum += data[index] * coefficients[j + halfWindow];
+            }
+            filtered[i] = (byte)Math.Round(Math.Clamp(sum, 0, 255));
+        }
+        return filtered;
+    }
+
+    // è®¡ç®—Savitzky-Golayç³»æ•°
+    private double[] CalculateSavitzkyGolayCoefficients(int windowSize, int polynomialOrder)
+    {
+        int halfWindow = windowSize / 2;
+        double[] coefficients = new double[windowSize];
+
+        // VandermondeçŸ©é˜µ
+        double[,] A = new double[windowSize, polynomialOrder + 1];
+        for (int i = -halfWindow; i <= halfWindow; i++)
+        {
+            for (int j = 0; j <= polynomialOrder; j++)
+            {
+                A[i + halfWindow, j] = Math.Pow(i, j);
+            }
+        }
+
+        // è®¡ç®—ä¼ªé€†çŸ©é˜µ (A^T * A)^-1 * A^T
+        // è¿™é‡Œç®€åŒ–å¤„ç†ï¼Œå®é™…åº”ç”¨ä¸­åº”ä½¿ç”¨çŸ©é˜µè¿ç®—åº“
+        double[] c = new double[windowSize];
+        for (int i = 0; i < windowSize; i++)
+        {
+            c[i] = A[i, 0]; // å–ç¬¬ä¸€åˆ—ï¼ˆå¸¸æ•°é¡¹ç³»æ•°ï¼‰
+        }
+
+        // å½’ä¸€åŒ–
+        double sum = c.Sum();
+        for (int i = 0; i < windowSize; i++)
+        {
+            coefficients[i] = c[i] / sum;
+        }
+
+        return coefficients;
+    }
+
+    // å¯»æ‰¾æœ€ä½³åˆ†å‰²ç‚¹ï¼ˆåŸºäºå³°çš„ä½ç½®åˆ†å¸ƒï¼‰
+    private int FindOptimalSplitPoint(List<ImageProcess.PeakInfo> peaks, int segmentWidth)
+    {
+        if (peaks.Count == 0) return segmentWidth / 2;
+
+        // å¦‚æœæœ‰Tå³°å’ŒCå³°ï¼Œä½¿ç”¨å®ƒä»¬ä¹‹é—´çš„ä¸­ç‚¹ä½œä¸ºåˆ†å‰²ç‚¹
+        var tPeak = peaks.FirstOrDefault(p => p.IsT);
+        var cPeak = peaks.FirstOrDefault(p => p.IsC);
+
+        if (tPeak != null && cPeak != null)
+        {
+            return (tPeak.Position + cPeak.Position) / 2;
+        }
+
+        // å¦‚æœæ²¡æœ‰æ˜ç¡®çš„T/Cæå³°ï¼Œä½¿ç”¨æ‰€æœ‰å³°çš„ä½ç½®ä¸­å€¼
+        if (peaks.Count > 0)
+        {
+            var positions = peaks.Select(p => p.Position).OrderBy(p => p).ToList();
+            return positions[positions.Count / 2];
+        }
+
+        // é»˜è®¤ä½¿ç”¨ä¸­ç‚¹
+        return segmentWidth / 2;
+    }
+
+    // è®¡ç®—åŸºçº¿æ–¹æ³•ï¼ˆä¼˜åŒ–ç‰ˆï¼‰
+    private double CalculateBaseline(byte[] data)
+    {
+        if (data == null || data.Length == 0) return 0;
+
+        // è®¡ç®—ä¸­å€¼
+        var sortedData = new List<byte>(data);
+        sortedData.Sort();
+        double median = sortedData[sortedData.Count / 2];
+
+        // è®¡ç®—ä½å€¼åŒºåŸŸçš„å¹³å‡å€¼ï¼ˆæ’é™¤é«˜å€¼ï¼‰
+        double sum = 0;
+        int count = 0;
+        foreach (byte value in data)
+        {
+            if (value <= median * 1.5)
+            {
+                sum += value;
+                count++;
+            }
+        }
+
+        if (count == 0) return median;
+        return sum / count;
+    }
+
+    // åŠ¨æ€è¾¹ç•Œæ£€æµ‹ï¼ˆå¦‚æœéœ€è¦é‡æ–°è®¡ç®—è¾¹ç•Œï¼‰
+    private (int start, int end) FindPeakBoundaries(int[] data, int peakIndex, double baseline)
+    {
+        // å‚æ•°æ ¡éªŒ
+        if (data == null || data.Length == 0 || peakIndex < 0 || peakIndex >= data.Length)
+            return (-1, -1);
+
+        // åŠ¨æ€é˜ˆå€¼ = åŸºçº¿ + (å³°å€¼-åŸºçº¿)*æ¯”ä¾‹å› å­
+        double dynamicThreshold = baseline + (data[peakIndex] - baseline) * 0.1;
+
+        // å‘å·¦æœç´¢èµ·ç‚¹
+        int start = peakIndex;
+        while (start > 0)
+        {
+            // ä½äºåŠ¨æ€é˜ˆå€¼
+            if (data[start] < dynamicThreshold)
+                break;
+
+            // æ£€æµ‹å±€éƒ¨æœ€å°å€¼ç‚¹ï¼ˆå¯¼æ•°ç”±è´Ÿå˜æ­£ï¼‰
+            if (start > 1 &&
+                data[start-1] < data[start] &&
+                data[start-1] < data[start-2])
+            {
+                break;
+            }
+            start--;
+        }
+
+        // å‘å³æœç´¢ç»ˆç‚¹
+        int end = peakIndex;
+        while (end < data.Length - 1)
+        {
+            // ä½äºåŠ¨æ€é˜ˆå€¼
+            if (data[end] < dynamicThreshold)
+                break;
+
+            // æ£€æµ‹å±€éƒ¨æœ€å°å€¼ç‚¹
+            if (end < data.Length - 2 &&
+                data[end+1] < data[end] &&
+                data[end+1] < data[end+2])
+            {
+                break;
+            }
+            end++;
+        }
+
+        // è¾¹ç•Œå¹³æ»‘å¤„ç†ï¼ˆé˜²æ­¢å™ªå£°å¹²æ‰°ï¼‰
+        start = Math.Max(0, start - 2);
+        end = Math.Min(data.Length - 1, end + 2);
+
+        // ç¡®ä¿æœ€å°å³°å®½
+        int minPeakWidth = 5;
+        if (end - start < minPeakWidth)
+        {
+            int center = (start + end) / 2;
+            start = Math.Max(0, center - minPeakWidth/2);
+            end = Math.Min(data.Length - 1, center + minPeakWidth/2);
+        }
+
+        return (start, end);
+    }
+
     private ObservableCollection<AnalysisModeItem> analysisModes = new ObservableCollection<AnalysisModeItem>
 {
+    new AnalysisModeItem("Max Difference   Calculate Max Channel Diff (Max(|R-G|,|G-B|,|B-R|))", "Calculate maximum channel difference (Max(|R-G|, |G-B|, |B-R|))"),
     new AnalysisModeItem("Gray Fusion   Standard RGB to Gray (0.3R+0.6G+0.1B)", "Standard RGB to Gray formula (0.3R + 0.6G + 0.1B)"),
     new AnalysisModeItem("Standard Difference   Highlight Red vs Background (R-(G+B)/2)", "Highlight difference between red and background (R - (G+B)/2)"),
     new AnalysisModeItem("Enhanced Red   Boost Red Channel (1.6R-G-B)", "Boost red channel (1.6R - G - B)"),
     new AnalysisModeItem("Enhanced Green-Blue   Boost Green & Blue Channels (1.5*(G+B)-0.8*R)", "Boost green and blue channels (1.5*(G+B) - 0.8*R)"),
     new AnalysisModeItem("Green-Blue Difference   Highlight Green vs Blue (|G-B|)", "Highlight difference between green and blue (|G - B|)"),
     new AnalysisModeItem("Target Color   Enhance Specific Target Color", "Enhance specific target color (default: red)"),
-    new AnalysisModeItem("Max Difference   Calculate Max Channel Diff (Max(|R-G|,|G-B|,|B-R|))", "Calculate maximum channel difference (Max(|R-G|, |G-B|, |B-R|))"),
-    new AnalysisModeItem("PCA Fusion   Principal Component Analysis Fusion", "Fuse channels using PCA (direction of max information)")
-};
+   };
 
     private Dictionary<string, ImageProcess.ChannelDiffMode> modeMapping = new Dictionary<string, ImageProcess.ChannelDiffMode>
 {
+    {"Max Difference   Calculate Max Channel Diff (Max(|R-G|,|G-B|,|B-R|))", ImageProcess.ChannelDiffMode.MaxDifference},
     {"Gray Fusion   Standard RGB to Gray (0.3R+0.6G+0.1B)", ImageProcess.ChannelDiffMode.Gray},
     {"Standard Difference   Highlight Red vs Background (R-(G+B)/2)", ImageProcess.ChannelDiffMode.Standard},
     {"Enhanced Red   Boost Red Channel (1.6R-G-B)", ImageProcess.ChannelDiffMode.EnhancedRed},
     {"Enhanced Green-Blue   Boost Green & Blue Channels (1.5*(G+B)-0.8*R)", ImageProcess.ChannelDiffMode.EnhancedGreenBlue},
     {"Green-Blue Difference   Highlight Green vs Blue (|G-B|)", ImageProcess.ChannelDiffMode.GreenBlueDiff},
     {"Target Color   Enhance Specific Target Color", ImageProcess.ChannelDiffMode.TargetColor},
-    {"Max Difference   Calculate Max Channel Diff (Max(|R-G|,|G-B|,|B-R|))", ImageProcess.ChannelDiffMode.MaxDifference},
-    {"PCA Fusion   Principal Component Analysis Fusion", ImageProcess.ChannelDiffMode.PCA}
+    
 };
-
-    // Ìí¼Ó·ÖÎöÄ£Ê½¸Ä±äÊÂ¼ş´¦Àí
-    private void OnAnalysisModeChanged(object sender, EventArgs e)
-    {
-        if (analysisModePicker.SelectedIndex == -1) return;
-
-        // »ñÈ¡Ñ¡ÖĞµÄÏî
-        var selectedItem = analysisModePicker.SelectedItem as AnalysisModeItem;
-
-        if (selectedItem != null)
-        {
-            if (modeMapping.TryGetValue(selectedItem.Name, out var mode))
-            {
-                // ¸üĞÂµ±Ç°·ÖÎöÄ£Ê½
-                imageProcess.CurrentAnalysisMode = mode;
-            }
-        }
-    }
-
     int touchnum;
     private async void waveformCanvas_Touch(object sender, SKTouchEventArgs e)
     {
+#if ANDROID
         touchnum++;
         if (touchnum % 2 == 0)
         {
@@ -590,31 +676,24 @@ public partial class RGBAnazy : ContentPage
             {
                 string userInput = null;
                 bool isValidInput = false;
-
-                // Ñ­»·Ö±µ½»ñµÃÓĞĞ§ÊäÈë»òÓÃ»§È¡Ïû
                 while (!isValidInput)
                 {
-                    // µ¯³öÊäÈë¿ò»ñÈ¡ÓÃ»§Êı¾İ
                     userInput = await DisplayPromptAsync(
-                        "ÒÇÆ÷Êµ²âÊı¾İ",
-                        "ÇëÊäÈëÒÇÆ÷Êµ²âµÄÊı¾İ£º",
-                        "È·ÈÏ",
-                        "²»Ìí¼Ó·¢ËÍ",
-                        "0",  // Ä¬ÈÏÖµÉèÎª0
+                        "ä»ªå™¨å®æµ‹æ•°æ®",
+                        "è¯·è¾“å…¥ä»ªå™¨å®æµ‹çš„æ•°æ®ï¼š",
+                        "ç¡®è®¤",
+                        "ä¸æ·»åŠ å‘é€",
+                        "0", 
                         maxLength: 20,
-                        keyboard: Keyboard.Numeric);  // Ê¹ÓÃÊı×Ö¼üÅÌ
-
-                    // ÓÃ»§µã»÷È¡Ïû
+                        keyboard: Keyboard.Numeric);
                     if (userInput == null) break;
-
-                    // ¼ì²éÊÇ·ñÎªÓĞĞ§Êı×Ö
                     if (double.TryParse(userInput, out _))
                     {
                         isValidInput = true;
                     }
                     else
                     {
-                        await DisplayAlert("ÊäÈë´íÎó", "ÇëÊäÈëÓĞĞ§µÄÊı×Ö", "È·¶¨");
+                        await DisplayAlert("è¾“å…¥é”™è¯¯", "è¯·è¾“å…¥æœ‰æ•ˆçš„æ•°å­—", "ç¡®å®š");
                     }
                 }
 
@@ -624,21 +703,13 @@ public partial class RGBAnazy : ContentPage
                 string filePath = Path.Combine(folderPath, fileName);
 
                 var lines = new List<string>();
-                lines.Add($"# Mode: {analysisModePicker.SelectedItem}");
-                lines.Add($"# R: {RedCheckBox.IsChecked}, G: {GreenCheckBox.IsChecked}, B: {BlueCheckBox.IsChecked}");
                 lines.Add($"# T/C: {imageProcess.TCrate}");
                 lines.Add($"# Time: {timestamp}");
-
-                // Ìí¼ÓÊı¾İÖµ£¨Ã¿ĞĞÒ»¸öÊıÖµ£©
                 foreach (byte b in imageProcess._DataValues)
                 {
                     lines.Add(b.ToString());
                 }
-
-                // Ìí¼ÓTCrate×÷Îªµ¥¶ÀµÄÊı¾İĞĞ
                 lines.Add(imageProcess.TCrate.ToString());
-
-                // Ìí¼ÓÓÃ»§ÊäÈë×÷Îªµ¥¶ÀµÄÊı¾İĞĞ£¨Èç¹ûÓĞ£©
                 if (isValidInput)
                 {
                     lines.Add(userInput);
@@ -648,15 +719,16 @@ public partial class RGBAnazy : ContentPage
 
                 await Share.RequestAsync(new ShareFileRequest
                 {
-                    Title = "·ÖÏíÊı¾İÎÄ¼ş",
+                    Title = "åˆ†äº«æ•°æ®æ–‡ä»¶",
                     File = new ShareFile(filePath)
                 });
             }
             catch (Exception ex)
             {
-                await DisplayAlert("´íÎó", $"±£´æ/·ÖÏíÎÄ¼şÊ§°Ü: {ex.Message}", "È·¶¨");
+                await DisplayAlert("é”™è¯¯", $"ä¿å­˜/åˆ†äº«æ–‡ä»¶å¤±è´¥: {ex.Message}", "ç¡®å®š");
             }
         }
+#endif
     }
 
 }

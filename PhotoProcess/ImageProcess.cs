@@ -1,39 +1,32 @@
-﻿using SkiaSharp;
+﻿using Microsoft.Maui.Controls.PlatformConfiguration;
+using SkiaSharp;
 namespace PhotoProcess
 {
     internal class ImageProcess
     {
         public SKBitmap? _saveBitmap;
-        public SKBitmap? _originalBitmap;//原始图像
-        public SKBitmap? _processedBitmap;//处理后的图像
-        public byte[]? _DataValues; // 存储中间行的数据值
-        public int _startX = 0; // 数据起始X坐标
-        public int _endX = 0; // 数据结束X坐标
-        public SKBitmap? _croppedColorBitmap;//裁剪后的彩色图像
-        public double TCrate; // T线比率
+        public SKBitmap? _originalBitmap;
+        public SKBitmap? _processedBitmap;
+        public byte[]? _DataValues; 
+        public int _startX = 0; 
+        public int _endX = 0; 
+        public SKBitmap? _croppedColorBitmap;
+        public double TCrate;
         public ImageProcess()
         {
             _originalBitmap = null;
             _processedBitmap = null;
         }
-
-        //构造函数，传入SKBitmap对象
         public ImageProcess(SKBitmap sKBitmap)
         {
             _originalBitmap = sKBitmap.Copy();
             _processedBitmap = _originalBitmap.Copy();
         }
-
-        //加载图像
         public void LoadImage(SKBitmap sKBitmap)
         {
             _originalBitmap = sKBitmap;
             _processedBitmap = null;
         }
-
-
-
-        //灰度处理
         public void ApplyGrayscale(SKBitmap bitmap)
         {
             using var pixmap = bitmap.PeekPixels();
@@ -86,7 +79,6 @@ namespace PhotoProcess
 #endif
         }
 
-        //二值化处理
         public Task ApplyBinary(SKBitmap bitmap, byte threshold)
         {
             return Task.Run(() =>
@@ -160,8 +152,6 @@ namespace PhotoProcess
 
             });
         }
-
-        //高斯模糊处理
         public void ApplyGaussianBlur(SKBitmap bitmap, int kernelSize)
         {
             float[,] kernel = {
@@ -224,35 +214,29 @@ namespace PhotoProcess
             bitmap = rotatedBitmap;
         }
 
-        //最大联通区域
         public SKRectI FindLargestConnectedComponent(SKBitmap binaryBitmap)
         {
             int width = binaryBitmap.Width;
             int height = binaryBitmap.Height;
             using var pixmap = binaryBitmap.PeekPixels();
             var pixels = pixmap.GetPixelSpan<byte>();
-
-            // 使用并查集数据结构处理等价关系
             var parents = new Dictionary<int, int>();
             var sizes = new Dictionary<int, int>();
             int[,] labels = new int[height, width];
             int currentLabel = 1;
-
-            // 第一遍扫描：分配标签并记录等价关系
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
                 {
                     int idx = (y * width + x) * 4;
 
-                    if (pixels[idx] == 255) // 白色像素
+                    if (pixels[idx] == 255) 
                     {
                         int left = (x > 0) ? labels[y, x - 1] : 0;
                         int top = (y > 0) ? labels[y - 1, x] : 0;
 
                         if (left == 0 && top == 0)
                         {
-                            // 新标签
                             labels[y, x] = currentLabel;
                             parents[currentLabel] = currentLabel;
                             sizes[currentLabel] = 1;
@@ -260,7 +244,6 @@ namespace PhotoProcess
                         }
                         else
                         {
-                            // 获取最小邻居标签（忽略0）
                             int minNeighbor = 0;
                             if (left != 0 && top != 0)
                                 minNeighbor = Math.Min(left, top);
@@ -268,21 +251,15 @@ namespace PhotoProcess
                                 minNeighbor = (left != 0) ? left : top;
 
                             labels[y, x] = minNeighbor;
-
-                            // 建立等价关系（Union-Find）
                             if (left != 0 && left != minNeighbor)
                                 Union(minNeighbor, left, parents, sizes);
                             if (top != 0 && top != minNeighbor)
                                 Union(minNeighbor, top, parents, sizes);
-
-                            // 更新当前标签的大小
                             sizes[Find(minNeighbor, parents)]++;
                         }
                     }
                 }
             }
-
-            // 第二遍扫描：合并等价标签到根标签
             for (int y = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)
@@ -295,7 +272,6 @@ namespace PhotoProcess
                 }
             }
 
-            // 统计连通区域大小
             var regionSizes = new Dictionary<int, int>();
             for (int y = 0; y < height; y++)
             {
@@ -311,7 +287,6 @@ namespace PhotoProcess
                 }
             }
 
-            // 找到最大连通区域
             int maxLabel = 0;
             int maxSize = 0;
             foreach (var kvp in regionSizes)
@@ -323,7 +298,6 @@ namespace PhotoProcess
                 }
             }
 
-            // 计算最大连通区域的边界矩形
             int minX = int.MaxValue, minY = int.MaxValue;
             int maxX = int.MinValue, maxY = int.MinValue;
             bool found = false;
@@ -348,8 +322,7 @@ namespace PhotoProcess
                 return new SKRectI(0, 0, width, height);
             }
 
-            // 扩展边界以确保包含整个连通区域
-            int padding = 5; // 添加5像素的填充
+            int padding = 5;
             minX = Math.Max(0, minX - padding);
             minY = Math.Max(0, minY - padding);
             maxX = Math.Min(width - 1, maxX + padding);
@@ -373,8 +346,6 @@ namespace PhotoProcess
             int x = Find(root1, parents);
             int y = Find(root2, parents);
             if (x == y) return;
-
-            // 按大小合并：小树合并到大树
             if (!sizes.ContainsKey(x)) sizes[x] = 1;
             if (!sizes.ContainsKey(y)) sizes[y] = 1;
 
@@ -389,7 +360,6 @@ namespace PhotoProcess
                 sizes[x] += sizes[y];
             }
         }
-        // 裁剪图像到最大连通区域
         public void CropToRegion(SKBitmap sourceBitmap, SKRectI boundingBox, ref SKBitmap targetBitmap)
         {
             int minX = boundingBox.Left;
@@ -398,11 +368,7 @@ namespace PhotoProcess
             int maxY = boundingBox.Bottom;
             int cropWidth = maxX - minX + 1;
             int cropHeight = maxY - minY + 1;
-
-            // 释放之前的裁剪图像
             _croppedColorBitmap?.Dispose();
-
-            // 创建新的裁剪图像
             _croppedColorBitmap = new SKBitmap(cropWidth, cropHeight, sourceBitmap.ColorType, sourceBitmap.AlphaType);
 
             using var sourcePixmap = sourceBitmap.PeekPixels();
@@ -425,23 +391,21 @@ namespace PhotoProcess
                     croppedPixels[dstIdx + 3] = sourcePixels[srcIdx + 3]; // A
                 }
             }
-
-            // 更新目标位图
             targetBitmap?.Dispose();
             targetBitmap = _croppedColorBitmap.Copy();
         }
 
-
-
-        // 波峰信息类
         public class PeakInfo
         {
-            public int Position { get; set; }  // 波峰位置
-            public int Start { get; set; }      // 波峰起始位置
-            public int End { get; set; }        // 波峰结束位置
-            public double Area { get; set; }    // 波峰面积（只包含高于基线的部分）
-            public bool IsT { get; set; }       // 是否为T线
-            public bool IsC { get; set; }       // 是否为C线
+            public int Position { get; set; } 
+            public int Start { get; set; }    
+            public int End { get; set; }    
+            public double Area { get; set; }    
+            public bool IsT { get; set; }      
+            public bool IsC { get; set; }       
+
+            public double LocalBaseline { get; set; }
+            public double Average { get; set; } 
         }
 
 
@@ -449,26 +413,18 @@ namespace PhotoProcess
         public void IdentifyTCPeaks(List<PeakInfo> peaks, int arrayLength)
         {
             if (peaks.Count == 0) return;
-
-            // 清除之前的标记
             foreach (var peak in peaks)
             {
                 peak.IsT = false;
                 peak.IsC = false;
             }
-
-            // 固定规则：左边是T线，右边是C线
-
-            // 1. 寻找C线（右边最高峰）
             PeakInfo? cPeak = null;
             double maxAreaRight = 0;
 
             for (int i = 0; i < peaks.Count; i++)
             {
-                // 位置在右半部分（避免误判左侧噪声）
                 if (peaks[i].Position > arrayLength * 0.5)
                 {
-                    // 选择右半部分面积最大的波峰作为C线
                     if (peaks[i].Area > maxAreaRight)
                     {
                         maxAreaRight = peaks[i].Area;
@@ -481,17 +437,13 @@ namespace PhotoProcess
             {
                 cPeak.IsC = true;
             }
-
-            // 2. 寻找T线（左边最高峰）
             PeakInfo? tPeak = null;
             double maxAreaLeft = 0;
 
             for (int i = 0; i < peaks.Count; i++)
             {
-                // 位置在左半部分（避免误判右侧噪声）
                 if (peaks[i].Position < arrayLength * 0.5)
                 {
-                    // 选择左半部分面积最大的波峰作为T线
                     if (peaks[i].Area > maxAreaLeft)
                     {
                         maxAreaLeft = peaks[i].Area;
@@ -505,13 +457,10 @@ namespace PhotoProcess
                 tPeak.IsT = true;
             }
 
-            // 3. 确保C线和T线不连通
             if (cPeak != null && tPeak != null)
             {
-                // 如果C线和T线位置相邻，可能是同一个连通区域
                 if (cPeak.Start <= tPeak.End)
                 {
-                    // 选择面积较大的作为C线，另一个作为T线
                     if (cPeak.Area > tPeak.Area)
                     {
                         tPeak.IsT = false;
@@ -529,17 +478,11 @@ namespace PhotoProcess
         {
             var peaks = new List<PeakInfo>();
             if (values == null || values.Length < 3) return peaks;
-
-            // 计算基线（使用整体数据的中位数，并适当提高）
             var allValues = new List<int>(values);
             allValues.Sort();
-            double baseline = allValues[allValues.Count / 2]; // 中位数
-            baseline = baseline * 1.05; // 提高5%
-
-            // 设置阈值 - 大于基线的5%
+            double baseline = allValues[allValues.Count / 2];
+            baseline = baseline * 1.1;
             int threshold = (int)(baseline * 1.05);
-
-            // 查找高于阈值的连续区域
             bool inPeak = false;
             int peakStart = 0;
             int peakMaxIndex = 0;
@@ -551,7 +494,6 @@ namespace PhotoProcess
                 {
                     if (!inPeak)
                     {
-                        // 开始新的波峰区域
                         inPeak = true;
                         peakStart = i;
                         peakMaxIndex = i;
@@ -559,7 +501,6 @@ namespace PhotoProcess
                     }
                     else
                     {
-                        // 更新波峰最大值
                         if (values[i] > peakMaxValue)
                         {
                             peakMaxValue = values[i];
@@ -569,28 +510,22 @@ namespace PhotoProcess
                 }
                 else if (inPeak)
                 {
-                    // 结束当前波峰区域
                     inPeak = false;
-
-                    // 确保波峰宽度足够（至少3个像素）
                     if (i - peakStart >= 3)
                     {
-                        // 向左扩展波峰起点
                         int start = peakStart;
                         while (start > 0 && values[start] > values[start - 1])
                             start--;
 
-                        // 向右扩展波峰终点
                         int end = i - 1;
                         while (end < values.Length - 1 && values[end] > values[end + 1])
                             end++;
 
-                        // 计算波峰面积（相对于基线的积分）
                         double area = 0;
                         for (int j = start; j <= end; j++)
                         {
-                            // 只计算高于基线的部分
                             area += Math.Max(0, values[j] - baseline);
+
                         }
 
                         peaks.Add(new PeakInfo
@@ -598,7 +533,8 @@ namespace PhotoProcess
                             Position = peakMaxIndex,
                             Start = start,
                             End = end,
-                            Area = area
+                            Area = area,
+                            Average = area / (end - start + 1)
                         });
                     }
                 }
@@ -639,7 +575,7 @@ namespace PhotoProcess
         public bool _R_enabled = true;
         public bool _G_enabled = true;
         public bool _B_enabled = true;
-        public ChannelDiffMode CurrentAnalysisMode = ChannelDiffMode.Gray;
+        public ChannelDiffMode CurrentAnalysisMode = ChannelDiffMode.MaxDifference;
         // RGB 分析处理函数
         public void ApplyRGBFilter(SKBitmap bitmap)
         {
@@ -676,15 +612,15 @@ namespace PhotoProcess
             for (int x = _startX; x < _endX; x++)
             {
                 int idx = (middleY * width + x) * 4;
-#if ANDROID
-                r = pixels[idx + 0]; // 注意：我们的像素顺序是RGB，所以R在索引0
-                g = pixels[idx + 1]; // G在索引1
-                b = pixels[idx + 2]; // B在索引2
-#endif
 #if WINDOWS
-                r = pixels[idx + 2]; // 注意：我们的像素顺序是BGR，所以R在索引2
+                r = pixels[idx + 2]; // 注意：我们的像素顺序是RGB，所以R在索引0
                 g = pixels[idx + 1]; // G在索引1
-                b = pixels[idx + 0]; // B在索引0
+                b = pixels[idx + 0]; // B在索引2
+#endif
+#if ANDROID
+                r = pixels[idx + 0]; // 注意：我们的像素顺序是BGR，所以R在索引2
+                g = pixels[idx + 1]; // G在索引1
+                b = pixels[idx + 2]; // B在索引0
 #endif
                 gray = CalculateChannelDiff(r, g, b, CurrentAnalysisMode);
                 _DataValues[x - _startX] = gray;
@@ -693,50 +629,70 @@ namespace PhotoProcess
         }
 
 
-        public void ApplyInvertRGB(SKBitmap bitmap)
+        public void ApplyInvertSmart(SKBitmap bitmap)
         {
-            using var pixmap = bitmap.PeekPixels();
-            var pixels = pixmap.GetPixelSpan<byte>();
-            int pixelCount = bitmap.Width * bitmap.Height;
-            byte gray = 0, r = 0, g = 0, b = 0;
-            for (int i = 0; i < pixelCount; i++)
+            int w = bitmap.Width, h = bitmap.Height;
+            if (w == 0 || h == 0) return;
+
+            // 1) 估算边缘平均颜色（作为纸张背景参考）
+            long sumR = 0, sumG = 0, sumB = 0, count = 0;
+            int border = Math.Max(1, Math.Min(w, h) / 20); // 取 5% 的边框区域
+            for (int y = 0; y < h; y++)
             {
-                int idx = i * 4;
-
-                // 获取各个通道的值
-#if ANDROID
-                // Android平台：像素顺序为RGBA
-                r = pixels[idx];
-                g = pixels[idx + 1];
-                b = pixels[idx + 2];
-#endif
-
-#if WINDOWS
-        // Windows平台：像素顺序为BGRA
-                b = pixels[idx];
-                g = pixels[idx + 1];
-                r = pixels[idx + 2];
-#endif
-
-                // 计算灰度值
-                gray = (byte)(r * 0.299f + g * 0.587f + b * 0.114f);
-                if (true)
+                for (int x = 0; x < w; x++)
                 {
-#if ANDROID
-                    // Android平台：像素顺序为RGBA
-                    pixels[idx] = (byte)(255 - pixels[idx]);     // R通道反转
-                    pixels[idx + 1] = (byte)(255 - pixels[idx + 1]); // G通道反转
-                    pixels[idx + 2] = (byte)(255 - pixels[idx + 2]); // B通道反转
-                                                                     // Alpha通道保持不变
-#endif
+                    if (x < border || x >= w - border || y < border || y >= h - border)
+                    {
+                        SKColor c = bitmap.GetPixel(x, y);
+                        sumR += c.Red;
+                        sumG += c.Green;
+                        sumB += c.Blue;
+                        count++;
+                    }
+                }
+            }
+            byte avgR = (byte)(sumR / Math.Max(1, count));
+            byte avgG = (byte)(sumG / Math.Max(1, count));
+            byte avgB = (byte)(sumB / Math.Max(1, count));
 
-#if WINDOWS
-            // Windows平台：像素顺序为BGRA
-            pixels[idx] = (byte)(255 - pixels[idx]);     // B通道反转
-            pixels[idx + 1] = (byte)(255 - pixels[idx + 1]); // G通道反转
-            pixels[idx + 2] = (byte)(255 - pixels[idx + 2]); // R通道反转
-            // Alpha通道保持不变
-#endif
+            // 2) 阈值（可以根据样本图片微调）
+            double sThreshold = 0.25;   // 饱和度阈值，白色饱和度低
+            double vThreshold = 0.85;   // 亮度/Value 阈值
+            double distThreshold = 60.0; // RGB 欧式距离阈值（与背景颜色比较）
+
+            // 3) 遍历像素并做判断与反色
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    SKColor c = bitmap.GetPixel(x, y);
+
+                    // RGB -> 0..1
+                    double rd = c.Red / 255.0;
+                    double gd = c.Green / 255.0;
+                    double bd = c.Blue / 255.0;
+
+                    double max = Math.Max(rd, Math.Max(gd, bd));
+                    double min = Math.Min(rd, Math.Min(gd, bd));
+                    double v = max; // value/brightness
+                    double s = (max == 0) ? 0.0 : (max - min) / max; // saturation
+
+                    double dr = c.Red - avgR;
+                    double dg = c.Green - avgG;
+                    double db = c.Blue - avgB;
+                    double dist = Math.Sqrt(dr * dr + dg * dg + db * db);
+
+                    bool isWhiteLike = (v > vThreshold && s < sThreshold)    // HSV 判断白
+                                       || (dist < distThreshold && v > 0.70); // 或者接近背景且亮
+
+                    if (isWhiteLike)
+                    {
+                        var nc = new SKColor((byte)(255 - c.Red),
+                                             (byte)(255 - c.Green),
+                                             (byte)(255 - c.Blue),
+                                             c.Alpha);
+                        bitmap.SetPixel(x, y, nc);
+                    }
                 }
             }
         }
@@ -755,7 +711,6 @@ namespace PhotoProcess
             TargetColor,    // 针对特定颜色增强
             MaxDifference,  // 最大通道差异
             EnhancedGreenBlue,
-            PCA             // 添加PCA融合方案
 
         }
 
@@ -774,12 +729,9 @@ namespace PhotoProcess
                 // 绿蓝差异：突出绿色与蓝色的差异
                 ChannelDiffMode.GreenBlueDiff => (byte)Math.Abs((g - b)),
                 // 目标颜色增强：针对特定目标颜色增强
-                ChannelDiffMode.TargetColor => CalculateTargetColorDiff(r, g, b),
+                ChannelDiffMode.TargetColor => (CalculateTargetColorDiff(r, g, b)),
                 // 最大通道差异：计算最大通道差异
                 ChannelDiffMode.MaxDifference => (byte)((Math.Max(Math.Abs(r - g), Math.Max(Math.Abs(g - b), Math.Abs(b - r))))),
-                // PCA融合：使用主成分分析融合通道
-                ChannelDiffMode.PCA => CalculatePCADiff(r, g, b),
-                _ => (byte)Math.Clamp(r - (g + b) / 2, 0, 200)
             };
         }
 
@@ -872,7 +824,7 @@ namespace PhotoProcess
             for (int i = 0; i < length; i++)
             {
                 float normalized = (projections[i] - minValue) / range * 255;
-                pcaValues[i] = (byte)Math.Clamp(normalized, 0, 255);
+                pcaValues[i] = (byte)Math.Clamp(normalized * 0.5, 0, 255);
             }
 
             return pcaValues;
